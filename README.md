@@ -22,7 +22,7 @@ Detailed documentation can be found in the `doc/` directory:
 
 1. **Configure GitHub**: Ensure your repository is public and you have `ZIPSIGN_PRIV_KEY` and `ZIPSIGN_PASSWORD` in your GitHub Secrets.
 2. **Key Generation**: Use `zipsign gen-key` to create your signing keys.
-3. **Embed Public Key**: Update `src/main.rs` with your Verifying (Public) Key bytes.
+3. **Embed Public Key**: Ensure `zipsign.pub` exists in the root (it is automatically embedded in `src/main.rs`).
 4. **Tag & Release**: Push a tag starting with `v` to trigger the automated release workflow.
 
 ## ⚖️ License

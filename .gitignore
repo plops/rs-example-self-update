@@ -10,3 +10,4 @@ test_large.db
 test_large.db.age
 tools/summaries*.db*
 tools/summaries*.age
+/secrets/

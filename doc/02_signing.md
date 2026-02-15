@@ -11,21 +11,27 @@ cargo install zipsign
 ```
 
 #### Step B: Generate your Keypair
-Run this once. **Do not lose the password or the keys.**
+Run this on your development machine. This project is configured to look for keys in a `secrets/` directory (which is gitignored).
+
 ```bash
-zipsign gen-key zipsign.priv zipsign.pub
+mkdir -p secrets
+zipsign gen-key secrets/zipsign.priv secrets/zipsign.pub
+cp secrets/zipsign.pub zipsign.pub
 ```
-*   **`zipsign.pub`**: The Verifying (Public) Key. You can share this. You will use this in your Rust code.
-*   **`zipsign.priv`**: The Private Key. **Keep this secret.** You will upload this to GitHub Secrets.
+
+*   **`secrets/zipsign.priv`**: The Private Key. **Keep this secret.** You will upload this to GitHub Secrets.
+*   **`secrets/zipsign.pub`**: The Verifying (Public) Key.
+*   **`zipsign.pub`** (Root): A copy of the public key that is committed to the repository so the compiler can embed it.
 
 #### Step C: Configure your Rust Code
-The `self_update` crate uses raw bytes for the public key. You'll need to use the 32-byte Ed25519 public key.
+The `self_update` crate uses raw bytes for the public key. We automate this by using `include_bytes!` to read the `zipsign.pub` file at compile time.
 
 ```rust
 // ... inside update_from_github() ...
-let public_key: [u8; 32] = [/* 32 bytes of your public key */];
+let public_key: [u8; 32] = *include_bytes!("../zipsign.pub");
 .verifying_keys(vec![public_key])
 ```
+This ensures your binary always has the correct public key without you having to manually copy-paste hex/binary strings.
 
 ---
 
