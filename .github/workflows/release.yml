@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers when you push a tag like v1.0.0
+
+jobs:
+  build-and-release:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: my-app
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: my-app
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: my-app.exe
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Zipsign
+        run: cargo install zipsign
+
+      - name: Build Binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # 1. Prepare the Archive Name
+      - name: Set Archive Name
+        shell: bash
+        run: echo "ARCHIVE_NAME=my-app-${{ github.ref_name }}-${{ matrix.target }}" >> $GITHUB_ENV
+
+      # 2. Compress the Binary (Zip for all, or Tar for Linux/Mac)
+      - name: Compress and Sign (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czf ../../../${{ env.ARCHIVE_NAME }}.tar.gz ${{ matrix.name }}
+          cd ../../..
+          # Sign using the secret key
+          echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" > zipsign.priv
+          zipsign sign -k zipsign.priv ${{ env.ARCHIVE_NAME }}.tar.gz
+        env:
+          ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
+
+      - name: Compress and Sign (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a ../../../${{ env.ARCHIVE_NAME }}.zip ${{ matrix.name }}
+          cd ../../..
+          echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" > zipsign.priv
+          zipsign sign -k zipsign.priv ${{ env.ARCHIVE_NAME }}.zip
+        env:
+          ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
+
+      # 3. Upload to GitHub Release
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            *.tar.gz
+            *.zip
+            *.sig 
+            # Note: zipsign creates a .sig file automatically

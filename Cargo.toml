@@ -1,0 +1,10 @@
+[package]
+name = "my-app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# The core library for updating
+self_update = { version = "0.41", features = ["archive-zip", "compression-zip-deflate", "signatures"] }
+# For verifying file integrity manually if needed, or just for fallback logic
+anyhow = "1.0"

@@ -1,0 +1,101 @@
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+fn main() -> anyhow::Result<()> {
+    // 1. Health Check Mode
+    // If the new binary runs successfully with this flag, we know it works.
+    let args: Vec<String> = env::args().collect();
+    if args.contains(&"--health-check".to_string()) {
+        println!("Health check passed!");
+        return Ok(());
+    }
+
+    println!("Current version: {}", env!("CARGO_PKG_VERSION"));
+    println!("Doing actual work...");
+    
+    // 2. Trigger Update (In a real app, you might trigger this via a command or on startup)
+    // We wrap this in a "Transaction" style backup/restore.
+    if let Err(e) = safe_update() {
+        eprintln!("Update failed or was reverted: {}", e);
+    }
+
+    Ok(())
+}
+
+fn safe_update() -> anyhow::Result<()> {
+    let current_exe = env::current_exe()?;
+    let backup_path = current_exe.with_extension("bak");
+
+    // A. Create a Backup
+    // On Windows, you can copy a running executable.
+    println!("Backing up current binary to {:?}", backup_path);
+    fs::copy(&current_exe, &backup_path)?;
+
+    // B. Perform the Update
+    // If this fails (network error, bad signature), we return early, and the backup is unused.
+    let status = match update_from_github() {
+        Ok(s) => s,
+        Err(e) => {
+            // Clean up backup if update failed before replacing files
+            let _ = fs::remove_file(&backup_path);
+            return Err(e);
+        }
+    };
+
+    if !status.updated() {
+        println!("Already up to date.");
+        let _ = fs::remove_file(&backup_path);
+        return Ok(());
+    }
+
+    println!("Update downloaded. Verifying health of new binary...");
+
+    // C. Health Check
+    // We try to run the NEW binary (which is now at `current_exe`)
+    let output = Command::new(&current_exe)
+        .arg("--health-check")
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            println!("New binary is healthy! Update complete.");
+            // Clean up the backup
+            let _ = fs::remove_file(&backup_path);
+        }
+        _ => {
+            eprintln!("New binary failed health check! Rolling back...");
+            
+            // D. Rollback
+            // On Windows, self_update renamed the *original* running process file to something generic.
+            // The file at `current_exe` is the NEW (broken) one.
+            // We can safely overwrite the NEW broken one with our BACKUP.
+            
+            // Force move backup -> current_exe
+            fs::rename(&backup_path, &current_exe)?; 
+            eprintln!("Rollback successful. Still on version {}", env!("CARGO_PKG_VERSION"));
+        }
+    }
+
+    Ok(())
+}
+
+fn update_from_github() -> anyhow::Result<self_update::Status> {
+    // Configure the updater
+    let status = self_update::backends::github::Update::configure()
+        .repo_owner("your_github_username")
+        .repo_name("your_repo_name")
+        .bin_name("my-app") // The name of the binary in the release assets
+        .show_download_progress(true)
+        .current_version(env!("CARGO_PKG_VERSION"))
+        // VERIFICATION:
+        // This expects a file named `my-app-<ver>-<target>.zip.sig` in the release.
+        // You must generate this using `zipsign` and your private key.
+        // .verify_with_zipsign(true) 
+        // .zipsign_public_key("RWRb...<YOUR_PUBLIC_KEY>...s5rK") 
+        .build()?
+        .update()?;
+
+    Ok(status)
+}
