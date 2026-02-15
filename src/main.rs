@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::path;
+
 use std::process::Command;
 
 fn main() -> anyhow::Result<()> {
@@ -93,7 +93,7 @@ fn update_from_github() -> anyhow::Result<self_update::Status> {
     let status = self_update::backends::github::Update::configure()
         .repo_owner("plops")
         .repo_name("rs-example-self-update")
-        .bin_name("my-app") // The name of the binary in the release assets
+        .bin_name("rs-example-self-update") // The name of the binary in the release assets
         .show_download_progress(true)
         .current_version(env!("CARGO_PKG_VERSION"))
         .verifying_keys(vec![public_key])

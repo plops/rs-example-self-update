@@ -14,7 +14,7 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            name: my-app
+            name: rs-example-self-update
           # - os: macos-latest
           #   target: x86_64-apple-darwin
           #   name: my-app
