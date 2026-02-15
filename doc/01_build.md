@@ -65,18 +65,19 @@ The `self_update` crate has built-in support for **`zipsign`** (which uses Ed255
 3.  **Embed Public Key**:
     Copy the contents of `zipsign.pub` into your Rust code:
     ```rust
-    .verify_with_zipsign(true)
-    .zipsign_public_key("RWRbM+...") // content of zipsign.pub
+    let public_key: [u8; 32] = *include_bytes!("../zipsign.pub");
+    // ...
+    .verifying_keys(vec![public_key])
     ```
 4.  **Sign during Build (CI)**:
     When your CI builds the release, it must compress the binary and sign it.
     ```bash
     # 1. Tar/Zip the binary
-    tar -czf rs-example-self-update-1.2.3-x86_64-unknown-linux-gnu.tar.gz rs-example-self-update
+    tar -czf rs-example-self-update-linux-amd64.tar.gz rs-example-self-update
     
     # 2. Sign the archive using your private key (stored in CI secrets)
     # The signature is embedded directly into the archive.
-    zipsign sign tar rs-example-self-update-1.2.3-x86_64-unknown-linux-gnu.tar.gz zipsign.priv
+    zipsign sign tar rs-example-self-update-linux-amd64.tar.gz zipsign.priv
     ```
 5.  **Upload**: Upload only the signed archive (e.g., `.tar.gz` or `.zip`) to the GitHub Release. No separate `.sig` file is needed.
 
@@ -84,22 +85,28 @@ If the signature verification fails (e.g., the file was tampered with or the dow
 
 ---
 
-### 5. Fallback Mechanisms
+### 5. Non-Blocking Background Updates
 
-Updating is risky. The code above implements a **"Backup & Health Check"** strategy.
+Updating shouldn't block the user's workflow. We use a separate thread and a message channel to communicate status.
 
-1.  **Pre-Update Backup**: We copy the current executable to `rs-example-self-update.bak`.
-2.  **In-Place Update**: `self_update` swaps the binary.
-3.  **Health Check**: We run `rs-example-self-update --health-check`.
-    *   **Why?** This catches issues like missing dynamic libraries (DLLs/so), architecture mismatches (running ARM on x86), or immediate segfaults.
-4.  **Rollback**:
-    *   If the child process (new binary) exits with a non-zero code, we assume it's broken.
-    *   We use `fs::rename("rs-example-self-update.bak", "rs-example-self-update")`.
-    *   **Windows Note**: On Windows, the OS locks the *file handle* of the running process, but `self_update` works around this by renaming the *running* file to a temp name (e.g., `rs-example-self-update.exe` -> `rs-example-self-update.exe.old`). This frees up the name `rs-example-self-update.exe` for the new file. This also means we are free to overwrite `rs-example-self-update.exe` with our backup if the new one fails.
+1.  **Background Thread**: Spawn a thread at startup to handle the network-heavy update check and download.
+2.  **Persistent State (Blacklisting)**: Store broken versions in an OS-specific cache directory (e.g., `state.json`) to avoid repeated failures.
+3.  **UI Feedback**: Use a simple message channel (e.g., `UpdateEvent`) to update the main UI (like a status bar or spinner) without blocking the main event loop.
 
-**Alternative Fallback**:
-If an update is *so* broken that the updater crashes before it can roll back, the user is stuck.
-*   **Solution**: Create a separate "launcher" or "shim" binary that never changes. It checks for `rs-example-self-update.exe` and `rs-example-self-update.bak`. If `rs-example-self-update.exe` crashes X times, the launcher restores `rs-example-self-update.bak`. This is more robust but adds complexity. For most simple CLI tools, the internal health check above is sufficient.
+```rust
+// In main loop (non-blocking)
+match rx.try_recv() {
+    Ok(UpdateEvent::Success(v)) => println!("Update v{} ready!", v),
+    Ok(UpdateEvent::Error(e)) => eprintln!("Update failed: {}", e),
+    _ => {}
+}
+```
+
+**Rollback Strategy**:
+If the new binary fails the internal `--health-check`, we:
+1.  **Mark**: Add the version to the local blacklist (`state.json`).
+2.  **Restore**: Overwrite the broken binary with the `.bak` file created during the update.
+3.  **Warn**: Notify the user that the update failed and they are back on the stable version.
 
 
 

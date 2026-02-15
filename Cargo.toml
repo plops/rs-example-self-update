@@ -1,6 +1,6 @@
 [package]
 name = "rs-example-self-update"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 
 [dependencies]
@@ -9,3 +9,7 @@ self_update = { version = "0.42", features = ["archive-tar", "archive-zip", "com
 # For verifying file integrity manually if needed, or just for fallback logic
 anyhow = "1.0"
 zipsign-api = "0.1"
+# For persistent state and background updates
+directories = "5.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
