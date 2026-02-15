@@ -26,7 +26,13 @@ Releases are triggered by pushing a git tag that starts with `v` (e.g., `v1.0.0`
     ```
 
 3.  **Tag the release**:
-    Create a local tag and push it to GitHub.
+    You can use the helper script in `tools/` to automate the tagging and pushing process. It also verifies that the version in `Cargo.toml` has been updated and that the tag doesn't already exist.
+
+    ```bash
+    ./tools/release.sh
+    ```
+
+    If you prefer to do it manually:
     ```bash
     git tag v1.0.0
     git push origin v1.0.0
