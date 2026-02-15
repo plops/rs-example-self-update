@@ -49,7 +49,7 @@ jobs:
           tar -czf ../../../${{ env.ARCHIVE_NAME }}.tar.gz ${{ matrix.name }}
           cd ../../..
           # Sign using the secret key (embedded signature)
-          echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" > zipsign.priv
+          echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" | base64 -d > zipsign.priv
           zipsign sign tar ${{ env.ARCHIVE_NAME }}.tar.gz zipsign.priv
         env:
           ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
@@ -62,7 +62,7 @@ jobs:
           cd target/${{ matrix.target }}/release
           7z a ../../../${{ env.ARCHIVE_NAME }}.zip ${{ matrix.name }}
           cd ../../..
-          echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" > zipsign.priv
+          echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" | base64 -d > zipsign.priv
           zipsign sign zip ${{ env.ARCHIVE_NAME }}.zip zipsign.priv
         env:
           ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}

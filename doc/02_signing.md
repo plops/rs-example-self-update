@@ -41,8 +41,12 @@ You should not upload releases manually. Use GitHub Actions to build, sign, and 
 
 #### Step A: Add Secrets to GitHub
 1.  Go to your GitHub Repo -> **Settings** -> **Secrets and variables** -> **Actions**.
-2.  Add `ZIPSIGN_PRIV_KEY`: Paste the content of `zipsign.priv`.
-3.  Add `ZIPSIGN_PASSWORD`: Paste the password you used when generating the key.
+2.  Add `ZIPSIGN_PRIV_KEY`: **Important!** Since the key is binary, you must convert it to a Base64 string first.
+    Run this command and paste the output:
+    ```bash
+    base64 -w0 secrets/zipsign.priv && echo ""
+    ```
+3.  Add `ZIPSIGN_PASSWORD`: Paste the password you used when generating the key (if any).
 
 #### Step B: Create the Workflow File
 Create `.github/workflows/release.yml`. This script builds the binary, compresses it, signs it, and uploads everything.
