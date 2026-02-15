@@ -15,12 +15,12 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             name: my-app
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            name: my-app
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: my-app.exe
+          # - os: macos-latest
+          #   target: x86_64-apple-darwin
+          #   name: my-app
+          # - os: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   name: my-app.exe
 
     steps:
       - uses: actions/checkout@v3

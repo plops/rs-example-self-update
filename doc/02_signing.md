@@ -13,7 +13,7 @@ cargo install zipsign
 #### Step B: Generate your Keypair
 Run this once. **Do not lose the password or the keys.**
 ```bash
-zipsign keygen
+zipsign gen-key zipsign.priv zipsign.pub
 ```
 *   **`zipsign.pub`**: The Public Key. You can share this. You will paste this into your Rust code.
 *   **`zipsign.priv`**: The Private Key. **Keep this secret.** You will upload this to GitHub Secrets.
