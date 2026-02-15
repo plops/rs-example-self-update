@@ -1,0 +1,12 @@
+/target/
+**/*.rs.bk
+Cargo.lock
+/.idea/
+**/*~
+# Test artifacts
+test.db
+test.db.age
+test_large.db
+test_large.db.age
+tools/summaries*.db*
+tools/summaries*.age
