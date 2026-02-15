@@ -15,17 +15,16 @@ Run this once. **Do not lose the password or the keys.**
 ```bash
 zipsign gen-key zipsign.priv zipsign.pub
 ```
-*   **`zipsign.pub`**: The Public Key. You can share this. You will paste this into your Rust code.
+*   **`zipsign.pub`**: The Verifying (Public) Key. You can share this. You will use this in your Rust code.
 *   **`zipsign.priv`**: The Private Key. **Keep this secret.** You will upload this to GitHub Secrets.
 
 #### Step C: Configure your Rust Code
-Open `zipsign.pub` with a text editor. It looks like `RWRbM+...`.
-Paste it into your `main.rs`:
+The `self_update` crate uses raw bytes for the public key. You'll need to use the 32-byte Ed25519 public key.
 
 ```rust
 // ... inside update_from_github() ...
-.verify_with_zipsign(true) 
-.zipsign_public_key("RWRbM+w/ABCD/YOUR_ACTUAL_PUB_KEY_HERE...") 
+let public_key: [u8; 32] = [/* 32 bytes of your public key */];
+.verifying_keys(vec![public_key])
 ```
 
 ---
@@ -37,10 +36,11 @@ You should not upload releases manually. Use GitHub Actions to build, sign, and 
 #### Step A: Add Secrets to GitHub
 1.  Go to your GitHub Repo -> **Settings** -> **Secrets and variables** -> **Actions**.
 2.  Add `ZIPSIGN_PRIV_KEY`: Paste the content of `zipsign.priv`.
-3.  Add `ZIPSIGN_PASSWORD`: Paste the password you used when generating the key (if any).
+3.  Add `ZIPSIGN_PASSWORD`: Paste the password you used when generating the key.
 
 #### Step B: Create the Workflow File
 Create `.github/workflows/release.yml`. This script builds the binary, compresses it, signs it, and uploads everything.
+The workflow uses `zipsign sign [zip|tar] <INPUT> <KEY>` which embeds the signature directly into the archive. No separate `.sig` file is generated or needed.
 
 ---
 
@@ -65,14 +65,14 @@ Here is how different approaches compare in terms of effort, risk, and suitabili
 | :--- | :--- | :--- | :--- | :--- |
 | **No Verification** | ⭐ Low | 💀 Unsafe | App downloads binary from URL and runs it. | **High.** If GitHub is hacked or DNS is spoofed, users get malware. |
 | **Hash Check (SHA256)** | ⭐⭐ Med | ⚠️ Medium | App downloads a `SHA256SUMS` file from the release, checks hash. | **Medium.** If an attacker compromises your GitHub account, they can replace the binary *and* the hash file. |
-| **Minisign / Zipsign** | ⭐⭐ Med | 🛡️ **High** | App has a hardcoded Public Key. Downloads `.sig` file. Verifies binary was signed by YOUR Private Key. | **Low.** Even if your GitHub account is hacked, the attacker cannot sign new malware without your Private Key (which is in CI secrets, not the repo). |
+| **Minisign / Zipsign** | ⭐⭐ Med | 🛡️ **High** | App has a hardcoded Public Key. Downloads signed archive. Verifies binary was signed by YOUR Private Key using embedded signature. | **Low.** Even if your GitHub account is hacked, the attacker cannot sign new malware without your Private Key (which is in CI secrets, not the repo). |
 | **TUF (The Update Framework)** | ⭐⭐⭐⭐⭐ Extreme | 🏰 Fortress | Handles key rotation, rollback attacks, freeze attacks. | **Overkill.** Requires complex server infrastructure. Too much for a simple binary tool. |
 
 ### 5. What is typically done?
 
 For **Rust CLI tools** distributed via GitHub:
 
-1.  **Standard**: Use **Minisign/Zipsign** (Approach #3 above). It provides the best balance of "set it and forget it" and high security.
+1.  **Standard**: Use **Minisign/Zipsign** (Approach #3 above). It provides the best balance of "set it and forget it" and high security. The current version (v1.85.0+) uses **embedded signatures** for `.zip` and `.tar.gz`, simplifying asset management.
 2.  **Alternative**: Many smaller tools just rely on **HTTPS + GitHub Account Security** (Approach #1). They assume that if GitHub itself serves the file over HTTPS, it's safe. This is acceptable for hobby projects but risky for production software.
 
 **Recommendation**: Stick with the **Zipsign** workflow provided above. It prevents the "GitHub Account Compromise" scenario from hurting your users and requires very little extra code.

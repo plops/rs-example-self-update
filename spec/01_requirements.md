@@ -19,14 +19,14 @@ To facilitate the update mechanism, the hosting repository must adhere to strict
 ### 2.2 Release Assets (Artifacts)
 Every release must contain the following assets for each supported platform. The naming convention is critical for the updater to correctly identify the target.
 
-| Platform    | Target Triple              | Required Asset Name                  | Signature File                           |
-| :---        | :---                       | :---                                 | :---                                     |
-| **Linux**   | `x86_64-unknown-linux-gnu` | `app-name-vX.Y.Z-linux-amd64.tar.gz` | `app-name-vX.Y.Z-linux-amd64.tar.gz.sig` |
-| **macOS**   | `x86_64-apple-darwin`      | `app-name-vX.Y.Z-macos-amd64.tar.gz` | `app-name-vX.Y.Z-macos-amd64.tar.gz.sig` |
-| **macOS**   | `aarch64-apple-darwin`     | `app-name-vX.Y.Z-macos-arm64.tar.gz` | `app-name-vX.Y.Z-macos-arm64.tar.gz.sig` |
-| **Windows** | `x86_64-pc-windows-msvc`   | `app-name-vX.Y.Z-windows-amd64.zip`  | `app-name-vX.Y.Z-windows-amd64.zip.sig`  |
+| Platform    | Target Triple              | Required Asset Name                      | Signature Method                         |
+| :---        | :---                       | :---                                     | :---                                     |
+| **Linux**   | `x86_64-unknown-linux-gnu` | `rs-example-self-update-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` | Embedded (ZipSign tar)                   |
+| **macOS**   | `x86_64-apple-darwin`      | `rs-example-self-update-vX.Y.Z-x86_64-apple-darwin.tar.gz`      | Embedded (ZipSign tar)                   |
+| **macOS**   | `aarch64-apple-darwin`     | `rs-example-self-update-vX.Y.Z-aarch64-apple-darwin.tar.gz`     | Embedded (ZipSign tar)                   |
+| **Windows** | `x86_64-pc-windows-msvc`   | `rs-example-self-update-vX.Y.Z-x86_64-pc-windows-msvc.zip`      | Embedded (ZipSign zip)                   |
 
-*Note: `app-name` and `vX.Y.Z` are placeholders for the actual application name and version.*
+*Note: `rs-example-self-update` and `vX.Y.Z` are placeholders for the actual application name and version.*
 
 ### 2.3 Secrets Management
 *   **Encrypted Secrets:** The repository must store the `ZIPSIGN_PRIV_KEY` and `ZIPSIGN_PASSWORD` in GitHub Actions Secrets to allow the CI pipeline to sign releases automatically.
@@ -55,14 +55,14 @@ To satisfy the requirement that the update check does not slow down startup:
 Before any file modification occurs, the application must verify the authenticity of the downloaded asset.
 *   **Embedded Key:** The `zipsign` **Public Key** must be hardcoded into the application binary at compile time.
 *   **Verification Process:**
-    1.  Download the binary archive (e.g., `.tar.gz`).
-    2.  Download the corresponding signature file (`.sig`).
+    1.  Download the binary archive (e.g., `.tar.gz` or `.zip`).
+    2.  The application uses `self_update` with the `signatures` feature to extract and verify the embedded signature.
     3.  Compute the Ed25519 signature verification using the embedded Public Key.
 *   **Failure Condition:** If verification fails (invalid signature, wrong key, or file corruption), the update **must** be aborted immediately, and the downloaded files deleted.
 
 ### 3.4 Update Application & Fallback
 The update process must be atomic and reversible.
-1.  **Backup:** The current running executable is copied to a backup path (e.g., `app-name.bak`).
+1.  **Backup:** The current running executable is copied to a backup path (e.g., `rs-example-self-update.bak`).
 2.  **Swap:** The new binary replaces the current binary.
     *   *Windows Specifics:* The running executable is renamed (e.g., to `app-name.old`) before the new one is moved into place, to avoid file-locking issues.
 3.  **Health Check (Validation):**
@@ -108,8 +108,8 @@ A workflow file (e.g., `release.yml`) must be configured to trigger on `push tag
 4.  **Sign:**
     *   Retrieve `ZIPSIGN_PRIV_KEY` from Secrets.
     *   Decrypt key using `ZIPSIGN_PASSWORD`.
-    *   Generate `.sig` file for the compressed archive.
-5.  **Upload:** Publish both the archive and the `.sig` file to the GitHub Release.
+    *   Embed the signature into the archive using `zipsign sign [zip|tar]`.
+5.  **Upload:** Publish the signed archive to the GitHub Release. (No separate `.sig` file is uploaded).
 
 ---
 

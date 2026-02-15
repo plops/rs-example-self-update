@@ -72,14 +72,13 @@ The `self_update` crate has built-in support for **`zipsign`** (which uses Ed255
     When your CI builds the release, it must compress the binary and sign it.
     ```bash
     # 1. Tar/Zip the binary
-    tar -czf my-app-1.2.3-linux.tar.gz my-app
+    tar -czf rs-example-self-update-1.2.3-x86_64-unknown-linux-gnu.tar.gz rs-example-self-update
     
     # 2. Sign the archive using your private key (stored in CI secrets)
-    zipsign sign -k zipsign.priv my-app-1.2.3-linux.tar.gz
-    
-    # This creates my-app-1.2.3-linux.tar.gz.sig
+    # The signature is embedded directly into the archive.
+    zipsign sign tar rs-example-self-update-1.2.3-x86_64-unknown-linux-gnu.tar.gz zipsign.priv
     ```
-5.  **Upload**: Upload both the `.tar.gz` and the `.sig` file to the GitHub Release.
+5.  **Upload**: Upload only the signed archive (e.g., `.tar.gz` or `.zip`) to the GitHub Release. No separate `.sig` file is needed.
 
 If the signature verification fails (e.g., the file was tampered with or the download was corrupted), `self_update` will abort before touching your running binary.
 
@@ -89,18 +88,18 @@ If the signature verification fails (e.g., the file was tampered with or the dow
 
 Updating is risky. The code above implements a **"Backup & Health Check"** strategy.
 
-1.  **Pre-Update Backup**: We copy the current executable to `my-app.bak`.
+1.  **Pre-Update Backup**: We copy the current executable to `rs-example-self-update.bak`.
 2.  **In-Place Update**: `self_update` swaps the binary.
-3.  **Health Check**: We run `my-app --health-check`.
+3.  **Health Check**: We run `rs-example-self-update --health-check`.
     *   **Why?** This catches issues like missing dynamic libraries (DLLs/so), architecture mismatches (running ARM on x86), or immediate segfaults.
 4.  **Rollback**:
     *   If the child process (new binary) exits with a non-zero code, we assume it's broken.
-    *   We use `fs::rename("my-app.bak", "my-app")`.
-    *   **Windows Note**: On Windows, the OS locks the *file handle* of the running process, but `self_update` works around this by renaming the *running* file to a temp name (e.g., `my-app.exe` -> `my-app.exe.old`). This frees up the name `my-app.exe` for the new file. This also means we are free to overwrite `my-app.exe` with our backup if the new one fails.
+    *   We use `fs::rename("rs-example-self-update.bak", "rs-example-self-update")`.
+    *   **Windows Note**: On Windows, the OS locks the *file handle* of the running process, but `self_update` works around this by renaming the *running* file to a temp name (e.g., `rs-example-self-update.exe` -> `rs-example-self-update.exe.old`). This frees up the name `rs-example-self-update.exe` for the new file. This also means we are free to overwrite `rs-example-self-update.exe` with our backup if the new one fails.
 
 **Alternative Fallback**:
 If an update is *so* broken that the updater crashes before it can roll back, the user is stuck.
-*   **Solution**: Create a separate "launcher" or "shim" binary that never changes. It checks for `my-app.exe` and `my-app.bak`. If `my-app.exe` crashes X times, the launcher restores `my-app.bak`. This is more robust but adds complexity. For most simple CLI tools, the internal health check above is sufficient.
+*   **Solution**: Create a separate "launcher" or "shim" binary that never changes. It checks for `rs-example-self-update.exe` and `rs-example-self-update.bak`. If `rs-example-self-update.exe` crashes X times, the launcher restores `rs-example-self-update.bak`. This is more robust but adds complexity. For most simple CLI tools, the internal health check above is sufficient.
 
 
 

@@ -1,0 +1,27 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.2.0] - 2026-02-15
+
+### Added
+- Embedded signature verification using `self_update` v0.42.0.
+- `zipsign-api` integration for cryptographic types.
+- Documentation index in `doc/README.md`.
+
+### Changed
+- Updated `zipsign` to v1.85.0 (Kijewski version).
+- Refactored GitHub Actions release workflow to use embedded signatures (removed separate `.sig` files).
+- Simplified `zipsign sign` CLI usage in CI/CD pipeline.
+- Updated technical specifications and guides to reflect the move to embedded signatures.
+
+### Fixed
+- GitHub build action failure due to outdated `zipsign` CLI arguments.
+- Unused import warnings in `src/main.rs`.
+
+## [0.1.0] - Prior versions
+
+- Initial setup with basic self-update mechanism.

@@ -1,10 +1,11 @@
 [package]
 name = "my-app"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
 # The core library for updating
-self_update = { version = "0.41", features = ["archive-zip", "compression-zip-deflate", "signatures"] }
+self_update = { version = "0.42", features = ["archive-tar", "archive-zip", "compression-zip-deflate", "compression-flate2", "signatures"] }
 # For verifying file integrity manually if needed, or just for fallback logic
 anyhow = "1.0"
+zipsign-api = "0.1"

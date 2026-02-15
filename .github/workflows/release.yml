@@ -41,19 +41,20 @@ jobs:
         shell: bash
         run: echo "ARCHIVE_NAME=my-app-${{ github.ref_name }}-${{ matrix.target }}" >> $GITHUB_ENV
 
-      # 2. Compress the Binary (Zip for all, or Tar for Linux/Mac)
+      # 2. Compress and Sign (Unix)
       - name: Compress and Sign (Unix)
         if: matrix.os != 'windows-latest'
         run: |
           cd target/${{ matrix.target }}/release
           tar -czf ../../../${{ env.ARCHIVE_NAME }}.tar.gz ${{ matrix.name }}
           cd ../../..
-          # Sign using the secret key
+          # Sign using the secret key (embedded signature)
           echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" > zipsign.priv
-          zipsign sign -k zipsign.priv ${{ env.ARCHIVE_NAME }}.tar.gz
+          zipsign sign tar ${{ env.ARCHIVE_NAME }}.tar.gz zipsign.priv
         env:
           ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
 
+      # 2. Compress and Sign (Windows)
       - name: Compress and Sign (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
@@ -62,7 +63,7 @@ jobs:
           7z a ../../../${{ env.ARCHIVE_NAME }}.zip ${{ matrix.name }}
           cd ../../..
           echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" > zipsign.priv
-          zipsign sign -k zipsign.priv ${{ env.ARCHIVE_NAME }}.zip
+          zipsign sign zip ${{ env.ARCHIVE_NAME }}.zip zipsign.priv
         env:
           ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
 
@@ -73,5 +74,5 @@ jobs:
           files: |
             *.tar.gz
             *.zip
-            *.sig 
-            # Note: zipsign creates a .sig file automatically
+            # Note: zipsign now embeds the signature directly into the archive.
+            # No separate .sig file is needed.
