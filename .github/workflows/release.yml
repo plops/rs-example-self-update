@@ -9,6 +9,8 @@ jobs:
   build-and-release:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -74,6 +76,6 @@ jobs:
         with:
           files: |
             *.tar.gz
-            # *.zip (Enable this when you re-enable Windows builds)
-            # Note: zipsign now embeds the signature directly into the archive.
-            # No separate .sig file is needed.
+          # *.zip (Enable this when you re-enable Windows builds)
+          # Note: zipsign now embeds the signature directly into the archive.
+          # No separate .sig file is needed.
