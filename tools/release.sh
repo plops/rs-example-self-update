@@ -49,6 +49,7 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
         NEXT_PATCH=$((patch + 1))
         NEXT_VERSION="$major.$minor.$NEXT_PATCH"
         
+        echo "Don't forget to update CHANGELOG.md"
         echo "Run this command to increment the version to $NEXT_VERSION and commit:"
         echo ""
         echo "  sed -i 's/^version = \"$VERSION\"/version = \"$NEXT_VERSION\"/' $CARGO_TOML && git commit -am \"bump version to $NEXT_VERSION\""

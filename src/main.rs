@@ -82,18 +82,27 @@ fn safe_update() -> anyhow::Result<()> {
 }
 
 fn update_from_github() -> anyhow::Result<self_update::Status> {
-    // Configure the updater
-    // Note: self_update v0.42.0+ with the 'signatures' feature enabled
-    // verified signatures embedded in the .zip or .tar.gz archives.
-    
-    // The public key used to verify release signatures.
-    // This is automatically read from the 'zipsign.pub' file at the project root.
+    // 1. Detect the current platform and map it to our custom naming convention
+    // OS: linux, macos, windows
+    // Arch: x86_64 -> amd64, aarch64 -> arm64
+    let os = std::env::consts::OS;
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        _ => std::env::consts::ARCH,
+    };
+    let target = format!("{}-{}", os, arch);
+
+    println!("Detecting updates for target: {}", target);
+
+    // 2. Configure the updater
     let public_key: [u8; 32] = *include_bytes!("../zipsign.pub");
 
     let status = self_update::backends::github::Update::configure()
         .repo_owner("plops")
         .repo_name("rs-example-self-update")
-        .bin_name("rs-example-self-update") // The name of the binary in the release assets
+        .bin_name("rs-example-self-update") 
+        .target(&target) // Explicitly tell it to look for assets containing "linux-amd64", etc.
         .show_download_progress(true)
         .current_version(env!("CARGO_PKG_VERSION"))
         .verifying_keys(vec![public_key])

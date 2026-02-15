@@ -21,10 +21,10 @@ Every release must contain the following assets for each supported platform. The
 
 | Platform    | Target Triple              | Required Asset Name                      | Signature Method                         |
 | :---        | :---                       | :---                                     | :---                                     |
-| **Linux**   | `x86_64-unknown-linux-gnu` | `rs-example-self-update-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` | Embedded (ZipSign tar)                   |
-| **macOS**   | `x86_64-apple-darwin`      | `rs-example-self-update-vX.Y.Z-x86_64-apple-darwin.tar.gz`      | Embedded (ZipSign tar)                   |
-| **macOS**   | `aarch64-apple-darwin`     | `rs-example-self-update-vX.Y.Z-aarch64-apple-darwin.tar.gz`     | Embedded (ZipSign tar)                   |
-| **Windows** | `x86_64-pc-windows-msvc`   | `rs-example-self-update-vX.Y.Z-x86_64-pc-windows-msvc.zip`      | Embedded (ZipSign zip)                   |
+| **Linux**   | `x86_64-unknown-linux-gnu` | `rs-example-self-update-linux-amd64.tar.gz` | Embedded (ZipSign tar)                   |
+| **macOS**   | `x86_64-apple-darwin`      | `rs-example-self-update-macos-amd64.tar.gz` | Embedded (ZipSign tar)                   |
+| **macOS**   | `aarch64-apple-darwin`     | `rs-example-self-update-macos-arm64.tar.gz` | Embedded (ZipSign tar)                   |
+| **Windows** | `x86_64-pc-windows-msvc`   | `rs-example-self-update-windows-amd64.zip`  | Embedded (ZipSign zip)                   |
 
 *Note: `rs-example-self-update` and `vX.Y.Z` are placeholders for the actual application name and version.*
 
