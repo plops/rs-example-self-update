@@ -17,10 +17,10 @@ jobs:
             name: rs-example-self-update
           # - os: macos-latest
           #   target: x86_64-apple-darwin
-          #   name: my-app
+          #   name: rs-example-self-update
           # - os: windows-latest
           #   target: x86_64-pc-windows-msvc
-          #   name: my-app.exe
+          #   name: rs-example-self-update.exe
 
     steps:
       - uses: actions/checkout@v3
@@ -39,7 +39,7 @@ jobs:
       # 1. Prepare the Archive Name
       - name: Set Archive Name
         shell: bash
-        run: echo "ARCHIVE_NAME=my-app-${{ github.ref_name }}-${{ matrix.target }}" >> $GITHUB_ENV
+        run: echo "ARCHIVE_NAME=${{ matrix.name }}-${{ github.ref_name }}-${{ matrix.target }}" >> $GITHUB_ENV
 
       # 2. Compress and Sign (Unix)
       - name: Compress and Sign (Unix)
@@ -51,21 +51,22 @@ jobs:
           # Sign using the secret key (embedded signature)
           echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" | base64 -d > zipsign.priv
           zipsign sign tar ${{ env.ARCHIVE_NAME }}.tar.gz zipsign.priv
+          rm zipsign.priv
         env:
           ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
 
       # 2. Compress and Sign (Windows)
-      - name: Compress and Sign (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          cd target/${{ matrix.target }}/release
-          7z a ../../../${{ env.ARCHIVE_NAME }}.zip ${{ matrix.name }}
-          cd ../../..
-          echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" | base64 -d > zipsign.priv
-          zipsign sign zip ${{ env.ARCHIVE_NAME }}.zip zipsign.priv
-        env:
-          ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
+      # - name: Compress and Sign (Windows)
+      #   if: matrix.os == 'windows-latest'
+      #   shell: bash
+      #   run: |
+      #     cd target/${{ matrix.target }}/release
+      #     7z a ../../../${{ env.ARCHIVE_NAME }}.zip ${{ matrix.name }}
+      #     cd ../../..
+      #     echo "${{ secrets.ZIPSIGN_PRIV_KEY }}" | base64 -d > zipsign.priv
+      #     zipsign sign zip ${{ env.ARCHIVE_NAME }}.zip zipsign.priv
+      #   env:
+      #     ZIPSIGN_PASSWORD: ${{ secrets.ZIPSIGN_PASSWORD }}
 
       # 3. Upload to GitHub Release
       - name: Upload Release Assets
@@ -73,6 +74,6 @@ jobs:
         with:
           files: |
             *.tar.gz
-            *.zip
+            # *.zip (Enable this when you re-enable Windows builds)
             # Note: zipsign now embeds the signature directly into the archive.
             # No separate .sig file is needed.
