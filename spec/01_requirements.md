@@ -1,116 +1,119 @@
-Here is the complete Requirements Specification Document. You can save this as `REQUIREMENTS.md` in your project repository to guide the development and CI setup.
-
-***
-
-# Requirements Specification: Self-Updating Rust Application
+This document serves as the technical specification for the implementation of a self-updating Rust command-line interface (CLI) application.
 
 ## 1. Project Overview
-The objective is to develop a cross-platform Rust command-line application capable of updating itself automatically by fetching the latest compatible binary from GitHub Releases. The update process must be secure, verifying the authenticity and integrity of the downloaded binary using `zipsign` (Minisign) signatures before applying any changes.
+**Goal:** Create a cross-platform Rust executable (Windows, macOS, Linux) that automatically detects, downloads, verifies, and installs updates from a public GitHub repository without user intervention, ensuring integrity via cryptographic signatures.
 
-## 2. Technology Stack
-*   **Language**: Rust (Latest Stable).
-*   **Core Update Library**: [`self_update`](https://crates.io/crates/self_update).
-*   **Cryptography/Signing**: [`zipsign`](https://crates.io/crates/zipsign) (Ed25519 signatures).
-*   **Hosting**: GitHub Releases.
-*   **CI/CD**: GitHub Actions.
-*   **Supported Platforms**:
-    *   Windows (`x86_64-pc-windows-msvc`)
-    *   macOS (`x86_64-apple-darwin` / `aarch64-apple-darwin`)
-    *   Linux (`x86_64-unknown-linux-gnu`)
+**Key Constraint:** The update check must occur on every application startup but **must not block** the main application execution flow.
 
 ---
 
-## 3. GitHub & Infrastructure Configuration
+## 2. GitHub Configuration (Server-Side)
 
-### 3.1 Repository Settings
-*   The repository must be public (or a token must be provided if private, though this spec assumes public).
-*   **Tags**: Releases must use Semantic Versioning tags (e.g., `v1.0.0`, `v1.0.1`).
+To facilitate the update mechanism, the hosting repository must adhere to strict conventions.
 
-### 3.2 Secrets Management
-The following secrets must be stored in **GitHub Repository Secrets**:
-1.  `ZIPSIGN_PRIV_KEY`: The contents of the `zipsign.priv` file generated locally.
-2.  `ZIPSIGN_PASSWORD`: The password used to encrypt the private key (if applicable).
+### 2.1 Repository Settings
+*   **Visibility:** Public.
+*   **Releases:** Must utilize GitHub Releases features.
+*   **Tagging Strategy:** Semantic Versioning (SemVer) must be used for tags (e.g., `v1.0.1`, `v2.1.0`). The `v` prefix is mandatory.
 
-### 3.3 Release Artifact Naming Convention
-To ensure the `self_update` library can identify the correct binary for the OS, release assets must follow this strict naming pattern:
-*   **Archive**: `<bin_name>-<version>-<target>.<extension>`
-*   **Signature**: `<bin_name>-<version>-<target>.<extension>.sig`
+### 2.2 Release Assets (Artifacts)
+Every release must contain the following assets for each supported platform. The naming convention is critical for the updater to correctly identify the target.
 
-**Examples:**
-*   `my-app-1.2.0-x86_64-unknown-linux-gnu.tar.gz`
-*   `my-app-1.2.0-x86_64-unknown-linux-gnu.tar.gz.sig`
-*   `my-app-1.2.0-x86_64-pc-windows-msvc.zip`
-*   `my-app-1.2.0-x86_64-pc-windows-msvc.zip.sig`
+| Platform    | Target Triple              | Required Asset Name                  | Signature File                           |
+| :---        | :---                       | :---                                 | :---                                     |
+| **Linux**   | `x86_64-unknown-linux-gnu` | `app-name-vX.Y.Z-linux-amd64.tar.gz` | `app-name-vX.Y.Z-linux-amd64.tar.gz.sig` |
+| **macOS**   | `x86_64-apple-darwin`      | `app-name-vX.Y.Z-macos-amd64.tar.gz` | `app-name-vX.Y.Z-macos-amd64.tar.gz.sig` |
+| **macOS**   | `aarch64-apple-darwin`     | `app-name-vX.Y.Z-macos-arm64.tar.gz` | `app-name-vX.Y.Z-macos-arm64.tar.gz.sig` |
+| **Windows** | `x86_64-pc-windows-msvc`   | `app-name-vX.Y.Z-windows-amd64.zip`  | `app-name-vX.Y.Z-windows-amd64.zip.sig`  |
 
----
+*Note: `app-name` and `vX.Y.Z` are placeholders for the actual application name and version.*
 
-## 4. Application Requirements
-
-### 4.1 Version Identification
-*   **Source of Truth**: The application version must be defined in `Cargo.toml`.
-*   **Build Integration**: The build system must inject the version into the binary using `env!("CARGO_PKG_VERSION")`.
-*   **Runtime Check**: The app must be able to output its current version (e.g., via `app --version`).
-
-### 4.2 Update Logic
-1.  **Discovery**: The app checks the specific GitHub Repository for the "Latest" release.
-2.  **Comparison**: The app parses the remote tag (e.g., `v1.0.1`) and compares it against the local version.
-    *   If `Remote > Local`: Proceed to update.
-    *   If `Remote <= Local`: Exit update process (notify user "Up to date").
-3.  **Target Selection**: The app must identify the current OS and Architecture to download the matching asset.
-
-### 4.3 Security & Verification
-*   **Public Key Embedding**: The `zipsign.pub` key content must be hardcoded (embedded) into the application source code.
-*   **Signature Check**:
-    *   The app must download both the archive (`.zip`/`.tar.gz`) and the signature (`.sig`).
-    *   The app must verify the signature against the embedded public key **before** extracting or executing the binary.
-    *   **Failure Condition**: If verification fails (invalid signature, corrupted file, wrong key), the update **must abort** immediately without modifying the local binary.
-
-### 4.4 Health Check & Rollback
-*   **Backup**: Before replacing the binary, the current executable must be copied to a backup path (e.g., `app.bak`).
-*   **Health Flag**: The application must implement a hidden flag: `--health-check`. When run with this flag, it should perform a minimal self-test (e.g., load config, print "OK") and exit with code `0`.
-*   **Post-Update Verification**:
-    1.  The updater launches the *new* binary with `--health-check`.
-    2.  **Success**: If exit code is `0`, delete backup.
-    3.  **Failure**: If exit code is non-zero or process crashes, restore `app.bak` to the original filename and alert the user.
+### 2.3 Secrets Management
+*   **Encrypted Secrets:** The repository must store the `ZIPSIGN_PRIV_KEY` and `ZIPSIGN_PASSWORD` in GitHub Actions Secrets to allow the CI pipeline to sign releases automatically.
 
 ---
 
-## 5. Error Handling & User Feedback
+## 3. Application Specifications (Client-Side)
 
-The application must provide clear CLI output for the following scenarios:
+### 3.1 Version Discovery & Comparison
+*   **Self-Awareness:** The application must compile with the version defined in `Cargo.toml` embedded (accessible via `env!("CARGO_PKG_VERSION")`).
+*   **Discovery:** The app queries the GitHub Releases API (`GET /repos/{owner}/{repo}/releases/latest`) over **HTTPS**.
+*   **Comparison Logic:**
+    1.  Parse the remote tag (remove `v` prefix).
+    2.  Compare remote SemVer vs. local SemVer.
+    3.  If `Remote > Local`, initiate the update sequence.
+    4.  If `Remote <= Local`, terminate the update thread silently.
 
-| Scenario | System Action | User Message Requirement |
-| :--- | :--- | :--- |
-| **Network Failure** | Abort. | "Could not connect to update server. Check internet connection." |
-| **No New Version** | Exit. | "Already up to date (Version X.Y.Z)." |
-| **Signature Mismatch** | **CRITICAL ABORT.** Delete downloaded temp files. | "Update validation failed! The downloaded file may be corrupted or tampered with. Update cancelled." |
-| **Permission Denied** | Abort. | "Insufficient permissions to replace binary. Try running as Administrator/Root." |
-| **Health Check Fail** | Rollback to backup. | "New version failed to start. Restoring previous version..." |
+### 3.2 Non-Blocking Execution Strategy
+To satisfy the requirement that the update check does not slow down startup:
+1.  **Main Thread:** Starts the application logic immediately.
+2.  **Update Thread:** A separate, asynchronous background thread is spawned immediately upon startup to perform the network check.
+    *   *Scenario A (Short-lived execution):* If the main program finishes before the network check, the program exits. The update is skipped (fail-safe).
+    *   *Scenario B (Long-lived execution):* If the main program is still running, the update thread proceeds to download and prompt/install.
+
+### 3.3 Verification Strategy (Zipsign)
+Before any file modification occurs, the application must verify the authenticity of the downloaded asset.
+*   **Embedded Key:** The `zipsign` **Public Key** must be hardcoded into the application binary at compile time.
+*   **Verification Process:**
+    1.  Download the binary archive (e.g., `.tar.gz`).
+    2.  Download the corresponding signature file (`.sig`).
+    3.  Compute the Ed25519 signature verification using the embedded Public Key.
+*   **Failure Condition:** If verification fails (invalid signature, wrong key, or file corruption), the update **must** be aborted immediately, and the downloaded files deleted.
+
+### 3.4 Update Application & Fallback
+The update process must be atomic and reversible.
+1.  **Backup:** The current running executable is copied to a backup path (e.g., `app-name.bak`).
+2.  **Swap:** The new binary replaces the current binary.
+    *   *Windows Specifics:* The running executable is renamed (e.g., to `app-name.old`) before the new one is moved into place, to avoid file-locking issues.
+3.  **Health Check (Validation):**
+    *   The updater runs the *new* binary in a subprocess with a specific flag (e.g., `--health-check`).
+    *   If the subprocess returns exit code `0`, the update is finalized.
+    *   If the subprocess crashes or returns non-zero, the **Rollback** is triggered.
+4.  **Rollback:**
+    *   The new (broken) binary is deleted.
+    *   The backup (`app-name.bak`) is restored to the original path.
+    *   The user is notified of the failed update attempt.
 
 ---
 
-## 6. Build & Release Pipeline (CI Specifications)
+## 4. Error Handling & User Feedback
 
-A GitHub Actions workflow (`release.yml`) is required to automate the distribution:
+The application must be robust against network and environment failures.
 
-1.  **Trigger**: On push of tag `v*`.
-2.  **Matrix Build**: Build for Ubuntu, macOS, and Windows.
-3.  **Packaging**:
-    *   Unix: `tar.gz`
-    *   Windows: `.zip`
-4.  **Signing Step**:
-    *   Install `zipsign`.
-    *   Load private key from Secrets.
-    *   Generate `.sig` file for the archive.
-5.  **Publishing**: Upload archive + signature to the GitHub Release.
+| Error Scenario                    | Required Action                       | User Notification                                                                     |
+| :---                              | :---                                  | :---                                                                                  |
+| **No Internet Connection**        | Abort update thread silently.         | None (Logs only if verbose mode is on).                                               |
+| **GitHub API Rate Limit**         | Abort update thread silently.         | None.                                                                                 |
+| **Signature Verification Failed** | **CRITICAL ABORT.** Delete downloads. | **STDERR:** "Security Warning: Update signature verification failed. Update aborted." |
+| **Download Interrupted**          | Retry once, then abort.               | **STDERR:** "Update download failed."                                                 |
+| **Health Check Failed**           | Trigger Rollback.                     | **STDERR:** "Update failed validation. Restoring previous version."                   |
+| **Permission Denied (OS)**        | Abort.                                | **STDERR:** "Insufficient permissions to update."                                     |
 
 ---
 
-## 7. Implementation Roadmap
+## 5. Build System & CI/CD Requirements
 
-1.  **Local Setup**: Install `zipsign`, generate keys (`zipsign.pub`, `zipsign.priv`).
-2.  **Manifest Setup**: Add `self_update` dependencies to `Cargo.toml`.
-3.  **Code - Verification**: Implement `update_from_github` with `.verify_with_zipsign()`.
-4.  **Code - Safety**: Implement `safe_update` wrapper (Backup -> Update -> Health Check -> Rollback).
-5.  **CI Setup**: Create `.github/workflows/release.yml` with signing logic.
-6.  **Test**: Push tag `v0.1.0`, verify release creation. Build `v0.0.9` locally and run it to test the update path.
+Automating the release process is required to ensure signatures match the binaries.
+
+### 5.1 Build Environment
+*   **Toolchain:** Rust (latest stable).
+*   **Dependencies:** `self_update` (with `archive-zip`, `compression-zip-deflate`, `signatures` features).
+*   **External Tools:** `zipsign` must be installed in the CI environment.
+
+### 5.2 CI Workflow (GitHub Actions)
+A workflow file (e.g., `release.yml`) must be configured to trigger on `push tags: v*`.
+1.  **Matrix Build:** Spin up runners for Ubuntu, macOS, and Windows.
+2.  **Compile:** Build with `--release`.
+3.  **Compress:** Zip (Windows) or Tarball (Unix) the binary.
+4.  **Sign:**
+    *   Retrieve `ZIPSIGN_PRIV_KEY` from Secrets.
+    *   Decrypt key using `ZIPSIGN_PASSWORD`.
+    *   Generate `.sig` file for the compressed archive.
+5.  **Upload:** Publish both the archive and the `.sig` file to the GitHub Release.
+
+---
+
+## 6. Security Summary
+*   **Transport:** TLS 1.2/1.3 (via HTTPS) protects against passive eavesdropping.
+*   **Integrity:** Ed25519 Signatures (Zipsign) protect against Man-in-the-Middle (MitM) attacks, DNS spoofing, and GitHub compromise (assuming the private key in Secrets remains secure).
+*   **Availability:** Fallback/Rollback mechanisms protect against delivering broken builds to users.
